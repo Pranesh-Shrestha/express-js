@@ -1,28 +1,54 @@
-name: JS Package Info
+
+name: JS
 
 on:
   workflow_dispatch:
 
+permissions:
+  checks: write
+  contents: write
+  packages: read
+  actions: write
+
 jobs:
-  list-js-packages:
+  sync-and-build:
     runs-on: ubuntu-latest
+    name: Sync fork and Run build
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+          
+      - name: Setup PSE
+        uses: invisirisk/pse-action@latest
         with:
-          node-version: '20' # or any version you need
+          api_url: "https://app.stage.invisirisk.com"
+          app_token: ${{ secrets.IR_API_KEY_STAGE }}
 
-      - name: Install dependencies
+      - name: Use Node.js
+        uses: actions/setup-node@v3
+        with:
+         node-version: "22.11.0"
+
+      - name: install dependencies
         run: npm install
 
-      - name: List installed packages
-        run: npm list --depth=0
+      - name: Cleanup PSE
+        if: always()
+        uses: invisirisk/pse-action@latest
+        with:
+          cleanup: "true"
 
-      - name: Count installed packages
-        run: |
-          echo "Total packages installed:"
-          npm list --depth=0 | grep '──' | wc -l
+  gather_analytics:
+   runs-on: ubuntu-latest
+   name: Gather Analytics
+   needs: sync-and-build
+   if: always()
+   steps:
+   - name: Gather Status
+     uses: invisirisk/pse-action@latest
+     with:
+      api_url: "https://app.stage.invisirisk.com"
+      app_token: ${{ secrets.IR_API_KEY_STAGE }}
+      send_job_status: "true"
+      debug: "true"
